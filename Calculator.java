@@ -3,24 +3,28 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 class Calculator {
-
-
-    private final String operationsExp = "[\\+-\\/\\*\\(\\)]+";
     private final String numExp = "[0-9]+(\\.[0-9]+)?";
+    private final String operationExp = "[\\*\\/\\+-\\^]?";
     private final String multiplicationGroup = numExp + "\\*" + numExp;
     private final String divisionGroup = numExp + "\\/" + numExp;
     private final String additionGroup = numExp + "\\+" + numExp;
     private final String subtractionGroup = numExp + "-" + numExp;
-    private final String perenthesisGroup = "\\((" + numExp + "[\\*\\/\\+-]" + numExp +")+\\)";
-
+    private final String exponentGroup = numExp + "\\^" + numExp;
+    private final String perenthesisGroup = "\\((" + numExp + operationExp + ")+" + numExp +"\\)";
 
     boolean isLoggingDebug = false;
 
     private Calculator(boolean log) {
         isLoggingDebug = log;
 
-        // Define the calculations
+        logDebug(perenthesisGroup);        
+        logDebug(exponentGroup);
+        logDebug(multiplicationGroup);
+        logDebug(divisionGroup);
+        logDebug(additionGroup);
+        logDebug(subtractionGroup);
 
+        // Define the calculations
         Scanner input = new Scanner(System.in);
         System.out.print("Enter a new equation: ");
 
@@ -41,13 +45,6 @@ class Calculator {
         equation = equation.replaceAll("\\s+", "");
         logDebug("Whitespace cleaned: " + equation);
 
-//        logDebug(perenthesisGroup);
-//        logDebug(multiplicationGroup);
-//        logDebug(divisionGroup);
-//        logDebug(additionGroup);
-//        logDebug(subtractionGroup);
-
-
         return simplifyEquationR(equation);
     }
 
@@ -67,101 +64,64 @@ class Calculator {
             String subEquation = parenthesisMatcher.group();
             subEquation = subEquation.substring(1, subEquation.length() - 1);
 
-            // Get the simplified version of this parentheses
+            System.out.println(subEquation);
+
+            // Get the simplified version of this parentheses (run recursive)
             String simplified = Double.toString(simplifyEquationR(subEquation));
             equation = substituteValue(equation, simplified, start, end);
+
+            // Find all new matches
             parenthesisMatcher = perenthesisPattern.matcher(equation);
         }
 
+        // Parse exponenets
+        equation = operationParser(equation, exponentGroup, (n1, n2) -> Math.pow(n1, n2));
+
         // Parse multiplication
-        Pattern multPattern = Pattern.compile(multiplicationGroup);
-        Matcher multMatcher = multPattern.matcher(equation);
-
-        // Iterate through all matches
-        while (multMatcher.find()) {
-            int start = multMatcher.start();
-            int end = multMatcher.end();
-
-            String subEquation = multMatcher.group();
-            logDebug(subEquation);
-
-            // Perform the multiplication
-            double[] ns = extractNumbers(subEquation);
-            double n1 = ns[0];
-            double n2 = ns[1];
-
-            String result = Double.toString(n1 * n2);
-            equation = substituteValue(equation, result, start, end);
-            multMatcher = multPattern.matcher(equation);
-        }
+        equation = operationParser(equation, multiplicationGroup, (n1, n2) -> n1 * n2);
 
         // Parse division
-        Pattern divPattern = Pattern.compile(divisionGroup);
-        Matcher divMatcher = divPattern.matcher(equation);
-
-        // Iterate through all matches
-        while (divMatcher.find()) {
-            int start = divMatcher.start();
-            int end = divMatcher.end();
-
-            String subEquation = divMatcher.group();
-            logDebug(subEquation);
-
-            // Perform the multiplication
-            double[] ns = extractNumbers(subEquation);
-            double n1 = ns[0];
-            double n2 = ns[1];
-
-            String result = Double.toString(n1 / n2);
-            equation = substituteValue(equation, result, start, end);
-            divMatcher = divPattern.matcher(equation);
-        }
+        equation = operationParser(equation, divisionGroup, (n1, n2) -> n1 / n2);
 
         // Parse addition
-        Pattern addPattern = Pattern.compile(additionGroup);
-        Matcher addMatcher = addPattern.matcher(equation);
-
-        // Iterate through all matches
-        while (addMatcher.find()) {
-            int start = addMatcher.start();
-            int end = addMatcher.end();
-
-            String subEquation = addMatcher.group();
-            logDebug(subEquation);
-
-            // Perform the multiplication
-            double[] ns = extractNumbers(subEquation);
-            double n1 = ns[0];
-            double n2 = ns[1];
-
-            String result = Double.toString(n1 + n2);
-            equation = substituteValue(equation, result, start, end);
-            addMatcher = addPattern.matcher(equation);
-        }
+        equation = operationParser(equation, additionGroup, (n1, n2) -> n1 + n2);
 
         // Parse subtraction
-        Pattern subPattern = Pattern.compile(subtractionGroup);
-        Matcher subMatcher = subPattern.matcher(equation);
+        equation = operationParser(equation, subtractionGroup, (n1, n2) -> n1 - n2);
+
+        return Double.parseDouble(equation);
+    }
+
+    interface OperationFunction {
+        double calculate(double n1, double n2);
+    }
+
+    private String operationParser(String equation, String operationGroup, OperationFunction cb) {
+                // Parse subtraction
+        Pattern operationPattern = Pattern.compile(operationGroup);
+        Matcher operationMatcher = operationPattern.matcher(equation);
 
         // Iterate through all matches
-        while (subMatcher.find()) {
-            int start = subMatcher.start();
-            int end = subMatcher.end();
+        while (operationMatcher.find()) {
+            int start = operationMatcher.start();
+            int end = operationMatcher.end();
 
-            String subEquation = subMatcher.group();
+            String subEquation = operationMatcher.group();
             logDebug(subEquation);
 
             // Perform the multiplication
-            double[] ns = extractNumbers(subEquation);
-            double n1 = ns[0];
-            double n2 = ns[1];
+            double[] numbers = extractNumbers(subEquation);
+            double number1 = numbers[0];
+            double number2 = numbers[1];
 
-            String result = Double.toString(n1 + n2);
-            equation = substituteValue(equation, result, start, end);
-            subMatcher = subPattern.matcher(equation);
+            double calculatedResult = cb.calculate(number1, number2);
+            String stringResult = Double.toString(calculatedResult);
+
+            equation = substituteValue(equation, stringResult, start, end);
+            operationMatcher = operationPattern.matcher(equation);
         }
 
-        return Double.parseDouble(equation);
+        return equation;
     }
 
     private double[] extractNumbers(String subEquation) {
@@ -177,8 +137,6 @@ class Calculator {
 
         return new double[]{firstNumber, secondNumber};
     }
-
-
 
     private String substituteValue(String equation, String subEquation, int start, int end){
         return equation.substring(0, start) + subEquation + equation.substring(end);
