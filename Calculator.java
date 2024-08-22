@@ -1,3 +1,4 @@
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,13 +18,6 @@ class Calculator {
     private Calculator(boolean log) {
         isLoggingDebug = log;
 
-        logDebug(perenthesisGroup);        
-        logDebug(exponentGroup);
-        logDebug(multiplicationGroup);
-        logDebug(divisionGroup);
-        logDebug(additionGroup);
-        logDebug(subtractionGroup);
-
         // Define the calculations
         Scanner input = new Scanner(System.in);
         System.out.print("Enter a new equation: ");
@@ -37,7 +31,8 @@ class Calculator {
     }
 
     public static void main(String[] args){
-        new Calculator(true);
+        boolean log = args.length > 0 && Objects.equals(args[0], "logDebug");
+        new Calculator(log);
     }
 
     private double solveEquation(String equation) {
@@ -64,9 +59,7 @@ class Calculator {
             String subEquation = parenthesisMatcher.group();
             subEquation = subEquation.substring(1, subEquation.length() - 1);
 
-            System.out.println(subEquation);
-
-            // Get the simplified version of this parentheses (run recursive)
+            // Get the simplified version of these parentheses (run recursive)
             String simplified = Double.toString(simplifyEquationR(subEquation));
             equation = substituteValue(equation, simplified, start, end);
 
@@ -74,8 +67,8 @@ class Calculator {
             parenthesisMatcher = perenthesisPattern.matcher(equation);
         }
 
-        // Parse exponenets
-        equation = operationParser(equation, exponentGroup, (n1, n2) -> Math.pow(n1, n2));
+        // Parse exponents
+        equation = operationParser(equation, exponentGroup, Math::pow);
 
         // Parse multiplication
         equation = operationParser(equation, multiplicationGroup, (n1, n2) -> n1 * n2);
@@ -84,7 +77,7 @@ class Calculator {
         equation = operationParser(equation, divisionGroup, (n1, n2) -> n1 / n2);
 
         // Parse addition
-        equation = operationParser(equation, additionGroup, (n1, n2) -> n1 + n2);
+        equation = operationParser(equation, additionGroup, Double::sum);
 
         // Parse subtraction
         equation = operationParser(equation, subtractionGroup, (n1, n2) -> n1 - n2);
